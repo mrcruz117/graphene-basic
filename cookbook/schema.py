@@ -30,13 +30,13 @@ class Query(graphene.ObjectType):
     total_ingredients = graphene.Int()
 
     def resolve_ingredients(root, info, first=None, offset=None):
-        ingredients = Ingredient.objects.select_related("category").all()
-
-        if offset:
+        ingredients = Ingredient.objects.select_related("category")
+        if offset is None:
+            offset = 0
+        if first is not None:
+            ingredients = ingredients[offset : offset + first]
+        else:
             ingredients = ingredients[offset:]
-        if first:
-            ingredients = ingredients[:first]
-
         total_count = ingredients.count()
         return IngredientListType(items=ingredients, total_count=total_count)
 
