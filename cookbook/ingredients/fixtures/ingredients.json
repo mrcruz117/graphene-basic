@@ -1,52 +1,78 @@
 [
+
+
   {
     "fields": {
-      "name": "Dairy"
-    },
-    "model": "ingredients.category",
-    "pk": 1
-  },
-  {
-    "fields": {
-      "name": "Meat"
-    },
-    "model": "ingredients.category",
-    "pk": 2
-  },
-  {
-    "fields": {
-      "category": 1,
-      "name": "Eggs",
-      "notes": "Good old eggs"
+      "category": 2,
+      "name": "Fish",
+      "notes": "Swimmy swimmy fish fish"
     },
     "model": "ingredients.ingredient",
-    "pk": 1
-  },
-  {
-    "fields": {
-      "category": 1,
-      "name": "Milk",
-      "notes": "Comes from a cow"
-    },
-    "model": "ingredients.ingredient",
-    "pk": 2
+    "pk": 5
   },
   {
     "fields": {
       "category": 2,
-      "name": "Beef",
-      "notes": "Much like milk, this comes from a cow"
+      "name": "Pheasant",
+      "notes": "Not a fish"
     },
     "model": "ingredients.ingredient",
-    "pk": 3
+    "pk": 6
   },
   {
     "fields": {
       "category": 2,
-      "name": "Chicken",
-      "notes": "Definitely doesn't come from a cow"
+      "name": "Pork",
+      "notes": "The other white meat"
     },
     "model": "ingredients.ingredient",
-    "pk": 4
+    "pk": 7
+  },
+ 
+  {
+    "fields": {
+      "category": 2,
+      "name": "Lamb",
+      "notes": "A cute treat"
+    },
+    "model": "ingredients.ingredient",
+    "pk": 8
+  },
+  {
+    "fields": {
+      "category": 2,
+      "name": "Turkey",
+      "notes": "I am thankful for this"
+    },
+    "model": "ingredients.ingredient",
+    "pk": 9
+  },
+  {
+    "fields": {
+      "category": 2,
+      "name": "Duck",
+      "notes": "Great in tacos"
+    },
+    "model": "ingredients.ingredient",
+    "pk": 10
+  },
+  
+  {
+    "fields": {
+      "category": 2,
+      "name": "Venison",
+      "notes": "Bambi"
+    },
+    "model": "ingredients.ingredient",
+    "pk": 11
+  },
+  {
+    "fields": {
+      "category": 2,
+      "name": "Rabbit",
+      "notes": "Thumper"
+    },
+    "model": "ingredients.ingredient",
+    "pk": 12
   }
 ]
