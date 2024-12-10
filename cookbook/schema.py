@@ -22,7 +22,9 @@ class IngredientListType(graphene.ObjectType):
 
 
 class Query(graphene.ObjectType):
-    ingredients = graphene.Field(IngredientListType)
+    ingredients = graphene.Field(IngredientListType,
+                                 first=graphene.Int(),
+                                 offset=graphene.Int(),)
     category_by_name = graphene.Field(
         CategoryType, name=graphene.String(required=True))
     total_ingredients = graphene.Int()
