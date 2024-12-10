@@ -16,20 +16,36 @@ class IngredientType(DjangoObjectType):
         fields = ("id", "name", "notes", "category")
 
 
+class IngredientListType(graphene.ObjectType):
+    items = graphene.List(IngredientType)
+    total_count = graphene.Int()
+
+
 class Query(graphene.ObjectType):
-    all_ingredients = graphene.List(IngredientType)
+    ingredients = graphene.Field(IngredientListType)
     category_by_name = graphene.Field(
         CategoryType, name=graphene.String(required=True))
+    total_ingredients = graphene.Int()
 
-    def resolve_all_ingredients(root, info):
-        # We can easily optimize query count in the resolve method
-        return Ingredient.objects.select_related("category").all()
+    def resolve_ingredients(root, info, first=None, offset=None):
+        ingredients = Ingredient.objects.select_related("category").all()
+
+        if offset:
+            ingredients = ingredients[offset:]
+        if first:
+            ingredients = ingredients[:first]
+
+        total_count = ingredients.count()
+        return IngredientListType(items=ingredients, total_count=total_count)
 
     def resolve_category_by_name(root, info, name):
         try:
             return Category.objects.get(name=name)
         except Category.DoesNotExist:
             return None
+
+    def resolve_total_ingredients(root, info):
+        return Ingredient.objects.count()
 
 
 schema = graphene.Schema(query=Query)
