@@ -79,7 +79,8 @@ class Query(graphene.ObjectType):
         # Apply ordering
         if order:
             direction = '-' if order.direction == OrderDirection.DESC else ''
-            filtered_qs = filtered_qs.order_by(f"{direction}{order.field.value}")
+            filtered_qs = filtered_qs.order_by(
+                f"{direction}{order.field.value}")
 
         # Apply pagination
         offset = offset or 0
@@ -102,6 +103,22 @@ class Query(graphene.ObjectType):
 
     def resolve_total_ingredients(root, info):
         return Ingredient.objects.count()
+
+
+class Mutation(graphene.ObjectType):
+    class Arguments:
+        name = graphene.String(required=True)
+        notes = graphene.String()
+        category_name = graphene.String(required=True)
+
+    ingredient = graphene.Field(IngredientType)
+
+    def resolve_ingredient(root, info, **kwargs):
+
+        category_name = kwargs.pop("category_name")
+        category, _ = Category.objects.get_or_create(name=category_name)
+        ingredient = Ingredient.objects.create(category=category, **kwargs)
+        return ingredient
 
 
 schema = graphene.Schema(query=Query)
