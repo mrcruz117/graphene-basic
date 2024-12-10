@@ -1,15 +1,24 @@
 import graphene
 from graphene_django import DjangoObjectType
-
+import django_filters
 
 from cookbook.ingredients.models import Category, Ingredient
 from django.db.models import QuerySet
 
 
-class IngredientWhereInput(graphene.InputObjectType):
-    name_contains = graphene.String()
-    category_id = graphene.Int()
-    notes_contains = graphene.String()
+class IngredientFilter(django_filters.FilterSet):
+    class Meta:
+        model = Ingredient
+        fields = {
+            "name": ["iexact", "icontains"],
+            "id": ["exact"],
+        }
+
+
+class IngredientFilterInput(graphene.InputObjectType):
+    name = graphene.String()
+    name__icontains = graphene.String()
+    id = graphene.Int()
 
 
 class CategoryType(DjangoObjectType):
@@ -21,6 +30,7 @@ class CategoryType(DjangoObjectType):
 class IngredientType(DjangoObjectType):
     class Meta:
         model = Ingredient
+        filterset_class = IngredientFilter
         fields = ("id", "name", "notes", "category")
 
 
@@ -56,7 +66,7 @@ def apply_filters_and_pagination(queryset: QuerySet, filters: dict, pagination: 
 class Query(graphene.ObjectType):
     ingredients = graphene.Field(
         IngredientListType,
-        where=IngredientWhereInput(),
+        where=graphene.Argument(IngredientFilterInput, required=False),
         first=graphene.Int(),
         offset=graphene.Int(),
     )
@@ -66,23 +76,10 @@ class Query(graphene.ObjectType):
 
     def resolve_ingredients(root, info, where=None, first=None, offset=None):
         ingredients = Ingredient.objects.select_related("category")
-
-        # Convert "where" object into a Django filter dictionary
-        filters = {}
-        if where:
-            if where.name_contains:
-                filters["name__icontains"] = where.name_contains
-            if where.category_id:
-                filters["category_id"] = where.category_id
-            if where.notes_contains:
-                filters["notes__icontains"] = where.notes_contains
-
-        # Apply filters and pagination
-        pagination = {"first": first, "offset": offset or 0}
+        filters = where if where else {}
+        pagination = {"first": first, "offset": offset}
         filtered_ingredients = apply_filters_and_pagination(
             ingredients, filters, pagination)
-
-        # Return the result
         total_count = filtered_ingredients.count()
         return IngredientListType(items=filtered_ingredients, total_count=total_count)
 
