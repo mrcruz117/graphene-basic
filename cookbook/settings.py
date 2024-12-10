@@ -38,9 +38,12 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # my apps
-    'cookbook.ingredients',
+    # dependencies
     'graphene_django',
+    'django_filters',
+
+    # apps
+    'cookbook.ingredients',
 ]
 
 GRAPHENE = {
