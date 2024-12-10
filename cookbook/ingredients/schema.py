@@ -19,6 +19,21 @@ class IngredientFilterInput(graphene.InputObjectType):
     id = graphene.Int()
 
 
+class IngredientOrderField(graphene.Enum):
+    name = "name"
+    id = "id"
+
+
+class OrderDirection(graphene.Enum):
+    ASC = "ASC"
+    DESC = "DESC"
+
+
+class IngredientOrderInput(graphene.InputObjectType):
+    field = graphene.Argument(IngredientOrderField, required=True)
+    direction = graphene.Argument(OrderDirection, required=True)
+
+
 class CategoryType(DjangoObjectType):
     class Meta:
         model = Category
@@ -42,22 +57,29 @@ class Query(graphene.ObjectType):
         where=graphene.Argument(IngredientFilterInput, required=False),
         first=graphene.Int(),
         offset=graphene.Int(),
-    )
+        order=graphene.Argument(IngredientOrderInput, required=False),)
     category_by_name = graphene.Field(
         CategoryType, name=graphene.String(required=True)
     )
     total_ingredients = graphene.Int()
 
-    def resolve_ingredients(root, info, where=None, first=None, offset=None):
+    def resolve_ingredients(root, info, where=None, first=None, offset=None, order=None):
         # Start with the base queryset
         ingredients = Ingredient.objects.select_related("category")
 
         # Apply filters using IngredientFilter
         if where:
-            filter_data = {key: value for key, value in where.items() if value is not None}
-            filtered_qs = IngredientFilter(filter_data, queryset=ingredients).qs
+            filter_data = {key: value for key,
+                           value in where.items() if value is not None}
+            filtered_qs = IngredientFilter(
+                filter_data, queryset=ingredients).qs
         else:
             filtered_qs = ingredients
+
+        # Apply ordering
+        if order:
+            direction = '-' if order.direction == OrderDirection.DESC else ''
+            filtered_qs = filtered_qs.order_by(f"{direction}{order.field.value}")
 
         # Apply pagination
         offset = offset or 0
@@ -71,7 +93,7 @@ class Query(graphene.ObjectType):
 
         # Return the result
         return IngredientListType(items=paginated_qs, total_count=total_count)
-    
+
     def resolve_category_by_name(root, info, name):
         try:
             return Category.objects.get(name=name)
