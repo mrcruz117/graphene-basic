@@ -185,21 +185,26 @@ class UpsertIngredient(graphene.Mutation):
         # If ID is not provided, ensure name and category_name are provided
         if not ingredient_id:
             if not name:
-                raise GraphQLError("Name is required when creating a new ingredient.")
+                raise GraphQLError(
+                    "Name is required when creating a new ingredient.")
             if not category_name:
-                raise GraphQLError("Category name is required when creating a new ingredient.")
+                raise GraphQLError(
+                    "Category name is required when creating a new ingredient.")
 
         # Ensure the category exists
         category = None
         if category_name:
             try:
-                category, _ = Category.objects.get_or_create(name=category_name)
+                category, _ = Category.objects.get_or_create(
+                    name=category_name)
             except Exception as e:
-                raise GraphQLError(f"Error creating or retrieving category: {str(e)}")
+                raise GraphQLError(
+                    f"Error creating or retrieving category: {str(e)}")
 
         # Check for duplicate name if the name is being updated or if creating a new ingredient
         if name and Ingredient.objects.filter(name=name).exclude(id=ingredient_id).exists():
-            raise GraphQLError(f"Ingredient with name '{name}' already exists.")
+            raise GraphQLError(f"Ingredient with name '{
+                               name}' already exists.")
 
         # If ID is provided, update the existing ingredient
         if ingredient_id:
@@ -213,7 +218,8 @@ class UpsertIngredient(graphene.Mutation):
                 })
                 ingredient.save()
             except Ingredient.DoesNotExist:
-                raise GraphQLError(f"Ingredient with id {ingredient_id} does not exist.")
+                raise GraphQLError(f"Ingredient with id {
+                                   ingredient_id} does not exist.")
         else:
             # Create a new ingredient
             ingredient = Ingredient.objects.create(
