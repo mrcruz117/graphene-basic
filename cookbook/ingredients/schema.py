@@ -168,13 +168,12 @@ class UpsertIngredient(graphene.Mutation):
         return UpsertIngredient(ingredient=ingredient)
 
 
-class Mutation(UpsertIngredient, graphene.ObjectType):
-    # upsert_ingredient = UpsertIngredient.Field()
-    pass
+class Mutation(graphene.ObjectType):
+    upsert_ingredient = UpsertIngredient.Field()
 
 
 class Query(IngredientQuery, CategoryQuery, StatsQuery, graphene.ObjectType):
     pass
 
 
-schema = graphene.Schema(query=Query, mutation=Mutation)
+# schema definition being applied in root schema.py file
