@@ -136,7 +136,7 @@ class UpsertIngredient(graphene.Mutation):
     def mutate(self, info, input):
         ingredient_id = input.get("id")
         name = input.get("name")
-        notes = input.get("notes")
+        notes = input.get("notes", "")
         category_name = input.get("category_name")
 
         # Ensure the category exists
@@ -145,6 +145,11 @@ class UpsertIngredient(graphene.Mutation):
         except Exception as e:
             raise GraphQLError(
                 f"Error creating or retrieving category: {str(e)}")
+
+        # check for dupe name
+        if Ingredient.objects.filter(name=name).exists():
+            raise GraphQLError(f"Ingredient with name '{
+                               name}' already exists.")
 
         # If id is provided, attempt to update the existing ingredient
         if ingredient_id:
