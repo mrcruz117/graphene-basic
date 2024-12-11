@@ -173,8 +173,26 @@ class UpsertIngredient(graphene.Mutation):
         return UpsertIngredient(ingredient=ingredient)
 
 
+class DeleteIngredient(graphene.Mutation):
+    class Arguments:
+        id = graphene.ID(required=True)
+
+    success = graphene.Boolean()
+
+    def mutate(self, info, id):
+        try:
+            ingredient = Ingredient.objects.get(id=id)
+        except Ingredient.DoesNotExist:
+            raise GraphQLError(f"Ingredient with id {id} does not exist.")
+
+        ingredient.delete()
+
+        return DeleteIngredient(success=True)
+
+
 class Mutation(graphene.ObjectType):
     upsert_ingredient = UpsertIngredient.Field()
+    delete_ingredient = DeleteIngredient.Field()
 
 
 class Query(IngredientQuery, CategoryQuery, StatsQuery, graphene.ObjectType):
