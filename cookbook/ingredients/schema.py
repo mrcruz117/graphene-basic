@@ -1,7 +1,6 @@
 import graphene
 from graphql import GraphQLError
 from graphene_django import DjangoObjectType
-import django_filters
 from django.core.exceptions import FieldError
 from cookbook.ingredients.models import Category, Ingredient
 
