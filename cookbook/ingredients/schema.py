@@ -2,22 +2,68 @@ import graphene
 from graphql import GraphQLError
 from graphene_django import DjangoObjectType
 import django_filters
+from django.core.exceptions import FieldError
 from cookbook.ingredients.models import Category, Ingredient
 
+# Helper function for filtering
 
-class IngredientFilter(django_filters.FilterSet):
-    class Meta:
-        model = Ingredient
-        fields = {
-            "name": ["iexact", "icontains"],
-            "id": ["exact"],
-        }
+
+def apply_filters(queryset, filter_data):
+    """
+    Applies filtering to a queryset based on the provided filter data.
+    """
+    if filter_data:
+        try:
+            return queryset.filter(**filter_data)
+        except FieldError as e:
+            raise GraphQLError(f"Invalid filter: {str(e)}")
+    return queryset
+
+# Helper function for ordering
+
+
+def apply_ordering(queryset, order_input):
+    """
+    Applies ordering to a queryset based on the provided order input.
+    """
+    if order_input:
+        direction = '-' if order_input.direction == OrderDirection.DESC else ''
+        return queryset.order_by(f"{direction}{order_input.field.value}")
+    return queryset
+
+# Helper function for pagination
+
+
+def apply_pagination(queryset, first=None, offset=None):
+    """
+    Applies pagination to a queryset based on the provided first and offset values.
+    """
+    offset = offset or 0
+    if first is not None:
+        return queryset[offset: offset + first]
+    return queryset[offset:]
+
+
+def update_fields(instance, fields):
+    """
+    Update an instance's attributes with the provided fields.
+
+    :param instance: The model instance to update.
+    :param fields: A dictionary of fields and their new values.
+    """
+    for field, value in fields.items():
+        if value is not None:
+            setattr(instance, field, value)
+
+# Ingredient Filter Type
 
 
 class IngredientFilterInput(graphene.InputObjectType):
     name__iexact = graphene.String()
     name__icontains = graphene.String()
     id = graphene.Int()
+
+# Ingredient Order Types
 
 
 class IngredientOrderField(graphene.Enum):
@@ -33,6 +79,8 @@ class OrderDirection(graphene.Enum):
 class IngredientOrderInput(graphene.InputObjectType):
     field = graphene.Argument(IngredientOrderField, required=True)
     direction = graphene.Argument(OrderDirection, required=True)
+
+# GraphQL Types
 
 
 class CategoryType(DjangoObjectType):
@@ -50,6 +98,8 @@ class IngredientType(DjangoObjectType):
 class IngredientListType(graphene.ObjectType):
     items = graphene.List(IngredientType)
     total_count = graphene.Int()
+
+# Queries
 
 
 class IngredientQuery(graphene.ObjectType):
@@ -71,32 +121,21 @@ class IngredientQuery(graphene.ObjectType):
 
     def resolve_ingredients(root, info, where=None, first=None, offset=None, order=None):
         # Start with the base queryset
-        ingredients = Ingredient.objects.select_related("category")
+        queryset = Ingredient.objects.select_related("category")
 
-        # Apply filters using IngredientFilter
-        if where:
-            filter_data = {key: value for key,
-                           value in where.items() if value is not None}
-            filtered_qs = IngredientFilter(
-                filter_data, queryset=ingredients).qs
-        else:
-            filtered_qs = ingredients
+        # Apply filters
+        filter_data = {key: value for key, value in (
+            where or {}).items() if value is not None}
+        filtered_qs = apply_filters(queryset, filter_data)
 
         # Apply ordering
-        if order:
-            direction = '-' if order.direction == OrderDirection.DESC else ''
-            filtered_qs = filtered_qs.order_by(
-                f"{direction}{order.field.value}")
+        ordered_qs = apply_ordering(filtered_qs, order)
+
+        # Get total count after filtering
+        total_count = ordered_qs.count()
 
         # Apply pagination
-        offset = offset or 0
-        if first is not None:
-            paginated_qs = filtered_qs[offset: offset + first]
-        else:
-            paginated_qs = filtered_qs[offset:]
-
-        # Total count of filtered ingredients
-        total_count = filtered_qs.count()
+        paginated_qs = apply_pagination(ordered_qs, first=first, offset=offset)
 
         # Return the result
         return IngredientListType(items=paginated_qs, total_count=total_count)
@@ -121,18 +160,14 @@ class StatsQuery(graphene.ObjectType):
     def resolve_total_ingredients(root, info):
         return Ingredient.objects.count()
 
+# Mutations
+
 
 class UpsertIngredientInput(graphene.InputObjectType):
     id = graphene.ID()   # ID is optional
-    name = graphene.String(required=True)
+    name = graphene.String()
     notes = graphene.String()
-    category_name = graphene.String(required=True)
-
-
-# Ingredient Type for Response
-class IngredientType(DjangoObjectType):
-    class Meta:
-        model = Ingredient
+    category_name = graphene.String()
 
 
 class UpsertIngredient(graphene.Mutation):
@@ -144,32 +179,41 @@ class UpsertIngredient(graphene.Mutation):
     def mutate(self, info, input):
         ingredient_id = input.get("id")
         name = input.get("name")
-        notes = input.get("notes", "")
+        notes = input.get("notes")
         category_name = input.get("category_name")
 
+        # If ID is not provided, ensure name and category_name are provided
+        if not ingredient_id:
+            if not name:
+                raise GraphQLError("Name is required when creating a new ingredient.")
+            if not category_name:
+                raise GraphQLError("Category name is required when creating a new ingredient.")
+
         # Ensure the category exists
-        try:
-            category, _ = Category.objects.get_or_create(name=category_name)
-        except Exception as e:
-            raise GraphQLError(
-                f"Error creating or retrieving category: {str(e)}")
+        category = None
+        if category_name:
+            try:
+                category, _ = Category.objects.get_or_create(name=category_name)
+            except Exception as e:
+                raise GraphQLError(f"Error creating or retrieving category: {str(e)}")
 
-        # check for dupe name
-        if Ingredient.objects.filter(name=name).exists():
-            raise GraphQLError(f"Ingredient with name '{
-                               name}' already exists.")
+        # Check for duplicate name if the name is being updated or if creating a new ingredient
+        if name and Ingredient.objects.filter(name=name).exclude(id=ingredient_id).exists():
+            raise GraphQLError(f"Ingredient with name '{name}' already exists.")
 
-        # If id is provided, attempt to update the existing ingredient
+        # If ID is provided, update the existing ingredient
         if ingredient_id:
             try:
                 ingredient = Ingredient.objects.get(id=ingredient_id)
-                ingredient.name = name
-                ingredient.notes = notes
-                ingredient.category = category
+                # Update fields dynamically
+                update_fields(ingredient, {
+                    "name": name,
+                    "notes": notes,
+                    "category": category,
+                })
                 ingredient.save()
             except Ingredient.DoesNotExist:
-                raise GraphQLError(f"Ingredient with id {
-                                   ingredient_id} does not exist.")
+                raise GraphQLError(f"Ingredient with id {ingredient_id} does not exist.")
         else:
             # Create a new ingredient
             ingredient = Ingredient.objects.create(
@@ -190,12 +234,10 @@ class DeleteIngredient(graphene.Mutation):
     def mutate(self, info, id):
         try:
             ingredient = Ingredient.objects.get(id=id)
+            ingredient.delete()
+            return DeleteIngredient(success=True)
         except Ingredient.DoesNotExist:
             raise GraphQLError(f"Ingredient with id {id} does not exist.")
-
-        ingredient.delete()
-
-        return DeleteIngredient(success=True)
 
 
 class Mutation(graphene.ObjectType):
@@ -205,6 +247,3 @@ class Mutation(graphene.ObjectType):
 
 class Query(IngredientQuery, CategoryQuery, StatsQuery, graphene.ObjectType):
     pass
-
-
-# schema definition being applied in root schema.py file
