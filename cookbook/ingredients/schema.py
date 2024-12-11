@@ -61,6 +61,14 @@ class IngredientQuery(graphene.ObjectType):
         order=graphene.Argument(IngredientOrderInput, required=False),
     )
 
+    ingredient = graphene.Field(IngredientType, id=graphene.ID(required=True))
+
+    def resolve_ingredient(root, info, id):
+        try:
+            return Ingredient.objects.get(id=id)
+        except Ingredient.DoesNotExist:
+            raise GraphQLError(f"Ingredient with id {id} does not exist.")
+
     def resolve_ingredients(root, info, where=None, first=None, offset=None, order=None):
         # Start with the base queryset
         ingredients = Ingredient.objects.select_related("category")
